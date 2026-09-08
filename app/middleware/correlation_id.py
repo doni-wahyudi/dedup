@@ -9,8 +9,9 @@ from fastapi import Request
 from starlette.middleware.base import BaseHTTPMiddleware
 from starlette.responses import Response
 
-# Context variable to store correlation ID
+# Context variables to store correlation ID and source channel
 _correlation_id: ContextVar[str] = ContextVar('correlation_id', default='')
+_source_channel: ContextVar[str] = ContextVar('source_channel', default='')
 
 logger = structlog.get_logger(__name__)
 
@@ -20,13 +21,19 @@ def get_correlation_id() -> str:
     return _correlation_id.get()
 
 
+def get_source_channel() -> str:
+    """Get current source channel from context"""
+    return _source_channel.get()
+
+
 class CorrelationIdMiddleware(BaseHTTPMiddleware):
-    """Middleware to add correlation ID to all requests and responses
+    """Middleware to add correlation ID and source channel to all requests and responses
     
     - Extracts correlation ID from X-Correlation-ID or X-Request-ID header
-    - Generates new UUID if not provided
-    - Adds to request context for access throughout request lifecycle
-    - Returns correlation ID in response headers
+    - Extracts source channel from X-Channel, X-Source-Channel, or Channel header
+    - Generates new UUID if correlation ID not provided
+    - Adds both to request context for access throughout request lifecycle
+    - Returns correlation ID and source channel in response headers
     """
 
     async def dispatch(self, request: Request, call_next: Callable) -> Response:
@@ -35,23 +42,34 @@ class CorrelationIdMiddleware(BaseHTTPMiddleware):
             "x-correlation-id",
             request.headers.get("x-request-id", str(uuid.uuid4()))
         )
-
-        # Set in context variable for access throughout request
         _correlation_id.set(correlation_id)
 
-        # Log request with correlation ID
+        # Extract source channel from headers
+        source_channel = request.headers.get(
+            "x-channel",
+            request.headers.get(
+                "x-source-channel",
+                request.headers.get("channel", "")
+            )
+        )
+        _source_channel.set(source_channel)
+
+        # Log request with correlation ID and source channel
         logger.info(
             "request_started",
             path=request.url.path,
             method=request.method,
             correlation_id=correlation_id,
+            source_channel=source_channel or None,
         )
 
         # Process request
         response = await call_next(request)
 
-        # Add correlation ID to response headers
+        # Add correlation ID and channel to response headers
         response.headers["X-Correlation-ID"] = correlation_id
+        if source_channel:
+            response.headers["X-Channel"] = source_channel
 
         # Log response
         logger.info(
@@ -60,6 +78,7 @@ class CorrelationIdMiddleware(BaseHTTPMiddleware):
             method=request.method,
             status_code=response.status_code,
             correlation_id=correlation_id,
+            source_channel=source_channel or None,
         )
 
         return response

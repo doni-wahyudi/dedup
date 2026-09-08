@@ -97,6 +97,7 @@ class FaceSearchResponse(BaseModel):
     faces: List[FaceMatch] = Field(..., description="List of matching faces")
     total: int = Field(..., description="Total number of matches found")
     search_ms: float = Field(..., description="Search execution time in milliseconds")
+    channel: Optional[str] = Field(None, description="Source channel identifier")
 
 
 class FaceDuplicateMatch(BaseModel):
@@ -122,6 +123,7 @@ class FaceValidationResponse(BaseModel):
 
     is_duplicate: bool = Field(..., alias="isDuplicate", description="True if duplicate(s) found above threshold")
     duplicates: List[FaceDuplicateMatch] = Field(..., description="List of duplicate matches")
+    channel: Optional[str] = Field(None, description="Source channel identifier")
 
 
 class FaceCompareResponse(BaseModel):
@@ -132,6 +134,7 @@ class FaceCompareResponse(BaseModel):
     similarity_score: float = Field(..., description="Cosine similarity score (0.0 - 1.0)")
     threshold: float = Field(..., description="Similarity threshold used for decision")
     processing_time_ms: float = Field(..., description="Total processing time in milliseconds")
+    channel: Optional[str] = Field(None, description="Source channel identifier")
 
 
 class HealthCheckResponse(BaseModel):

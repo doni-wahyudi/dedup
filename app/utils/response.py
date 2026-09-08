@@ -20,6 +20,7 @@ class SuccessResponse(BaseModel):
     statusCode: int = Field(..., description="HTTP status code")
     data: Optional[Any] = Field(None, description="Response data")
     correlationId: Optional[str] = Field(None, description="Request correlation ID for tracing")
+    channel: Optional[str] = Field(None, description="Source channel")
 
 
 class ErrorResponse(BaseModel):
@@ -38,15 +39,19 @@ class ResponseFormatter:
     def success(
         data: Any = None,
         status_code: int = 200,
-        correlation_id: Optional[str] = None
+        correlation_id: Optional[str] = None,
+        channel: Optional[str] = None,
     ) -> Dict[str, Any]:
         """Format success response"""
-        return {
+        result = {
             "success": True,
             "statusCode": status_code,
             "data": data,
             "correlationId": correlation_id
         }
+        if channel:
+            result["channel"] = channel
+        return result
 
     @staticmethod
     def error(

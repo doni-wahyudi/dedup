@@ -8,7 +8,7 @@ import structlog
 from fastapi import Request, Response
 from starlette.middleware.base import BaseHTTPMiddleware
 
-from app.middleware.correlation_id import get_correlation_id
+from app.middleware.correlation_id import get_correlation_id, get_source_channel
 
 
 def configure_logging():
@@ -67,8 +67,12 @@ class LoggingMiddleware(BaseHTTPMiddleware):
     
     async def dispatch(self, request: Request, call_next: Callable) -> Response:
         """Process request and log details in structured JSON format"""
-        # Get correlation ID (set by CorrelationIdMiddleware)
+        # Get correlation ID and source channel (set by CorrelationIdMiddleware)
         correlation_id = get_correlation_id()
+        source_channel = get_source_channel() or request.headers.get(
+            "x-channel",
+            request.headers.get("x-source-channel", request.headers.get("channel", ""))
+        )
         
         # Start timer
         start_time = time.time()
@@ -81,6 +85,7 @@ class LoggingMiddleware(BaseHTTPMiddleware):
         logger.info(
             "http.request.start",
             correlation_id=correlation_id,
+            source_channel=source_channel or None,
             method=request.method,
             path=request.url.path,
             query_string=str(request.url.query) if request.url.query else None,
@@ -100,6 +105,7 @@ class LoggingMiddleware(BaseHTTPMiddleware):
             logger.info(
                 "http.request.completed",
                 correlation_id=correlation_id,
+                source_channel=source_channel or None,
                 method=request.method,
                 path=request.url.path,
                 status_code=response.status_code,
@@ -107,8 +113,10 @@ class LoggingMiddleware(BaseHTTPMiddleware):
                 client_host=client_host,
             )
             
-            # Ensure correlation ID is in response headers
+            # Ensure correlation ID and channel are in response headers
             response.headers["X-Correlation-ID"] = correlation_id
+            if source_channel:
+                response.headers["X-Channel"] = source_channel
             
             return response
             
@@ -120,6 +128,7 @@ class LoggingMiddleware(BaseHTTPMiddleware):
             logger.error(
                 "http.request.failed",
                 correlation_id=correlation_id,
+                source_channel=source_channel or None,
                 method=request.method,
                 path=request.url.path,
                 duration_ms=round(duration_ms, 2),

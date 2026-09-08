@@ -2,10 +2,10 @@
 
 from typing import Optional
 
-from fastapi import APIRouter, File, Form, UploadFile, status, Query
+from fastapi import APIRouter, File, Form, UploadFile, status, Query, Header
 from fastapi.responses import JSONResponse
 
-from app.middleware.correlation_id import get_correlation_id
+from app.middleware.correlation_id import get_correlation_id, get_source_channel
 from app.models.schemas import FaceSearchResponse
 from app.services.dedup_service import dedup_service
 from app.utils.response import ResponseFormatter
@@ -36,8 +36,19 @@ async def search_faces(
         ge=0.0, le=1.0,
         description="Distance filter. L2: max distance, IP: min distance"
     ),
+    x_channel: Optional[str] = Header(
+        default=None,
+        alias="X-Channel",
+        description="Source channel (e.g. MMS, MOBILE, WEB)",
+    ),
+    x_source_channel: Optional[str] = Header(
+        default=None,
+        alias="X-Source-Channel",
+        description="Alternative source channel header",
+    ),
 ):
     """Search for similar faces using provider-specific distance matching"""
+    channel = x_channel or x_source_channel or get_source_channel() or None
     
     # Read image data
     image_data = await image.read()
@@ -48,7 +59,8 @@ async def search_faces(
         filename=image.filename or "image.jpg",
         limit=limit,
         sentra_id=sentra_id,
-        distance=distance
+        distance=distance,
+        channel=channel,
     )
 
 
@@ -74,8 +86,19 @@ async def validate_face(
         ge=0.0, le=1.0,
         description="Minimum similarity threshold (IP metric). Uses server default if not provided"
     ),
+    x_channel: Optional[str] = Header(
+        default=None,
+        alias="X-Channel",
+        description="Source channel (e.g. MMS, MOBILE, WEB)",
+    ),
+    x_source_channel: Optional[str] = Header(
+        default=None,
+        alias="X-Source-Channel",
+        description="Alternative source channel header",
+    ),
 ):
     """Validate whether a face is a duplicate of an existing enrollment"""
+    channel = x_channel or x_source_channel or get_source_channel() or None
     image_data = await image.read()
 
     result = dedup_service.validate_face(
@@ -84,6 +107,7 @@ async def validate_face(
         limit=limit,
         sentra_id=sentra_id,
         distance=distance,
+        channel=channel,
     )
 
     return JSONResponse(
@@ -91,6 +115,7 @@ async def validate_face(
         content=ResponseFormatter.success(
             data=result.model_dump(by_alias=True),
             correlation_id=get_correlation_id(),
+            channel=channel,
         ),
     )
 
@@ -111,8 +136,19 @@ async def compare_faces(
         le=1.0,
         description="Similarity threshold (0.0-1.0). Uses server default if not provided",
     ),
+    x_channel: Optional[str] = Header(
+        default=None,
+        alias="X-Channel",
+        description="Source channel (e.g. MMS, MOBILE, WEB)",
+    ),
+    x_source_channel: Optional[str] = Header(
+        default=None,
+        alias="X-Source-Channel",
+        description="Alternative source channel header",
+    ),
 ):
     """Compare two face images and return similarity result (synchronous 1:1 comparison)"""
+    channel = x_channel or x_source_channel or get_source_channel() or None
     image1_data = await image1.read()
     image2_data = await image2.read()
 
@@ -122,6 +158,7 @@ async def compare_faces(
         image2_data=image2_data,
         image2_filename=image2.filename or "image2.jpg",
         threshold=threshold,
+        channel=channel,
     )
 
     return JSONResponse(
@@ -129,5 +166,6 @@ async def compare_faces(
         content=ResponseFormatter.success(
             data=result.model_dump(),
             correlation_id=get_correlation_id(),
+            channel=channel,
         ),
     )

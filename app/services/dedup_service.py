@@ -6,6 +6,7 @@ import structlog
 from app.config.settings import settings
 from app.core.insightface import InsightFaceClient
 from app.core.milvus import milvus_client
+from app.middleware.correlation_id import get_source_channel
 from app.models.schemas import FaceSearchResponse, FaceMatch, FaceDuplicateMatch, FaceValidationResponse, FaceCompareResponse
 from app.utils.exceptions import DedupServiceError
 
@@ -25,7 +26,8 @@ class DedupService:
         filename: str,
         limit: int = 10,
         sentra_id: Optional[str] = None,
-        distance: Optional[float] = None
+        distance: Optional[float] = None,
+        channel: Optional[str] = None,
     ) -> FaceSearchResponse:
         """Search for similar faces using provider-specific distance matching
         
@@ -35,11 +37,13 @@ class DedupService:
             limit: Maximum results to return
             sentra_id: Optional Sentra ID filter
             distance: Optional distance filter for results
+            channel: Optional source channel identifier
         
         Returns:
             FaceSearchResponse with matches sorted by distance, filtered if specified
         """
         start_time = time.time()
+        effective_channel = channel or get_source_channel() or None
         
         try:
             # Extract face embedding
@@ -52,7 +56,8 @@ class DedupService:
             logger.info(
                 "query_embedding_extracted",
                 embedding_dimension=len(embedding),
-                filename=filename
+                filename=filename,
+                source_channel=effective_channel,
             )
             
             # Search top K similar faces in Milvus
@@ -99,13 +104,15 @@ class DedupService:
                 milvus_ms=round(milvus_ms, 1),
                 search_time_ms=round(search_time_ms, 1),
                 limit_requested=limit,
-                sentra_id_filter=sentra_id
+                sentra_id_filter=sentra_id,
+                source_channel=effective_channel,
             )
             
             return FaceSearchResponse(
                 faces=matches,
                 total=len(matches),
-                search_ms=round(search_time_ms, 1)
+                search_ms=round(search_time_ms, 1),
+                channel=effective_channel,
             )
             
         except DedupServiceError:
@@ -122,6 +129,7 @@ class DedupService:
         limit: int = 10,
         sentra_id: Optional[str] = None,
         distance: Optional[float] = None,
+        channel: Optional[str] = None,
     ) -> FaceValidationResponse:
         """Validate whether a face is a duplicate of an existing enrollment.
 
@@ -131,12 +139,14 @@ class DedupService:
             limit: Maximum candidates to retrieve from Milvus
             sentra_id: Optional Sentra ID filter
             distance: Minimum similarity threshold (IP metric). Uses default_threshold if None.
+            channel: Optional source channel identifier
 
         Returns:
             FaceValidationResponse with is_duplicate flag and list of matches above threshold
         """
         start_time = time.time()
         threshold = distance if distance is not None else settings.default_threshold
+        effective_channel = channel or get_source_channel() or None
 
         try:
             embedding_start = time.time()
@@ -179,11 +189,13 @@ class DedupService:
                 embedding_ms=round(embedding_ms, 1),
                 milvus_ms=round(milvus_ms, 1),
                 search_time_ms=search_ms,
+                source_channel=effective_channel,
             )
 
             return FaceValidationResponse(
                 is_duplicate=len(duplicates) > 0,
                 duplicates=duplicates,
+                channel=effective_channel,
             )
 
         except DedupServiceError:
@@ -199,6 +211,7 @@ class DedupService:
         image2_data: bytes,
         image2_filename: str,
         threshold: Optional[float] = None,
+        channel: Optional[str] = None,
     ) -> FaceCompareResponse:
         """Compare two face images and return similarity result.
 
@@ -212,12 +225,14 @@ class DedupService:
             image2_data: Second face image bytes
             image2_filename: Second image filename
             threshold: Optional similarity threshold override
+            channel: Optional source channel identifier
 
         Returns:
             FaceCompareResponse with match status and similarity score
         """
         start_time = time.time()
         effective_threshold = threshold if threshold is not None else settings.face_compare_threshold
+        effective_channel = channel or get_source_channel() or None
 
         try:
             # Process first image (validate format, detect face, extract embedding)
@@ -247,6 +262,7 @@ class DedupService:
                 similarity=round(similarity, 4),
                 threshold=effective_threshold,
                 processing_time_ms=processing_time_ms,
+                source_channel=effective_channel,
             )
 
             return FaceCompareResponse(
@@ -255,6 +271,7 @@ class DedupService:
                 similarity_score=round(similarity, 4),
                 threshold=effective_threshold,
                 processing_time_ms=processing_time_ms,
+                channel=effective_channel,
             )
 
         except DedupServiceError:
