@@ -6,7 +6,7 @@ import structlog
 from app.config.settings import settings
 from app.core.insightface import InsightFaceClient
 from app.core.milvus import milvus_client
-from app.models.schemas import FaceSearchResponse, FaceMatch, FaceDuplicateMatch, FaceValidationResponse
+from app.models.schemas import FaceSearchResponse, FaceMatch, FaceDuplicateMatch, FaceValidationResponse, FaceCompareResponse
 from app.utils.exceptions import DedupServiceError
 
 logger = structlog.get_logger(__name__)
@@ -191,6 +191,77 @@ class DedupService:
         except Exception as e:
             logger.error("validate_face_failed", error=str(e))
             raise DedupServiceError(f"Validation failed: {str(e)}")
+
+    def compare_faces(
+        self,
+        image1_data: bytes,
+        image1_filename: str,
+        image2_data: bytes,
+        image2_filename: str,
+        threshold: Optional[float] = None,
+    ) -> FaceCompareResponse:
+        """Compare two face images and return similarity result.
+
+        Performs 1:1 face comparison using cosine similarity on InsightFace
+        embeddings. Both images go through the full validation pipeline
+        (format check, face detection, single-face enforcement).
+
+        Args:
+            image1_data: First face image bytes
+            image1_filename: First image filename
+            image2_data: Second face image bytes
+            image2_filename: Second image filename
+            threshold: Optional similarity threshold override
+
+        Returns:
+            FaceCompareResponse with match status and similarity score
+        """
+        start_time = time.time()
+        effective_threshold = threshold if threshold is not None else settings.face_compare_threshold
+
+        try:
+            # Process first image (validate format, detect face, extract embedding)
+            embedding1, metadata1 = self.insightface_client.process_image(
+                image1_data, image1_filename
+            )
+            if embedding1 is None:
+                raise DedupServiceError("No face detected in first image")
+
+            # Process second image (same pipeline)
+            embedding2, metadata2 = self.insightface_client.process_image(
+                image2_data, image2_filename
+            )
+            if embedding2 is None:
+                raise DedupServiceError("No face detected in second image")
+
+            # Compare embeddings using cosine similarity
+            is_match, similarity = self.insightface_client.verify_face_match(
+                embedding1, embedding2, tolerance=effective_threshold
+            )
+
+            processing_time_ms = round((time.time() - start_time) * 1000, 1)
+
+            logger.info(
+                "face_compare_completed",
+                is_match=is_match,
+                similarity=round(similarity, 4),
+                threshold=effective_threshold,
+                processing_time_ms=processing_time_ms,
+            )
+
+            return FaceCompareResponse(
+                is_match=is_match,
+                status="Match" if is_match else "No Match",
+                similarity_score=round(similarity, 4),
+                threshold=effective_threshold,
+                processing_time_ms=processing_time_ms,
+            )
+
+        except DedupServiceError:
+            raise
+        except Exception as e:
+            logger.error("face_compare_failed", error=str(e))
+            raise DedupServiceError(f"Face comparison failed: {str(e)}")
 
 
 # Global instance

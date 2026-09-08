@@ -118,6 +118,12 @@ class Settings(BaseSettings):
         description="Supported image extensions (comma-separated)"
     )
     
+    # Face 1:1 Comparison Settings
+    face_compare_threshold: float = Field(
+        default=0.4,
+        description="Similarity threshold for 1:1 face comparison (cosine similarity, 0.0-1.0)"
+    )
+    
     @property
     def image_formats_set(self) -> set[str]:
         """Convert image formats string to set"""

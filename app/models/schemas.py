@@ -124,6 +124,16 @@ class FaceValidationResponse(BaseModel):
     duplicates: List[FaceDuplicateMatch] = Field(..., description="List of duplicate matches")
 
 
+class FaceCompareResponse(BaseModel):
+    """Face 1:1 comparison response"""
+
+    is_match: bool = Field(..., description="True if similarity >= threshold")
+    status: str = Field(..., description="Match or No Match")
+    similarity_score: float = Field(..., description="Cosine similarity score (0.0 - 1.0)")
+    threshold: float = Field(..., description="Similarity threshold used for decision")
+    processing_time_ms: float = Field(..., description="Total processing time in milliseconds")
+
+
 class HealthCheckResponse(BaseModel):
     """Health check response"""
     

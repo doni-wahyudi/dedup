@@ -93,3 +93,41 @@ async def validate_face(
             correlation_id=get_correlation_id(),
         ),
     )
+
+
+@router.post(
+    "/compare",
+    status_code=status.HTTP_200_OK,
+    summary="Compare two face images",
+    description="Perform 1:1 face comparison between two uploaded images. "
+    "Returns Match/No Match status with similarity score.",
+)
+async def compare_faces(
+    image1: UploadFile = File(..., description="First face image file (JPG, PNG)"),
+    image2: UploadFile = File(..., description="Second face image file (JPG, PNG)"),
+    threshold: Optional[float] = Form(
+        default=None,
+        ge=0.0,
+        le=1.0,
+        description="Similarity threshold (0.0-1.0). Uses server default if not provided",
+    ),
+):
+    """Compare two face images and return similarity result (synchronous 1:1 comparison)"""
+    image1_data = await image1.read()
+    image2_data = await image2.read()
+
+    result = dedup_service.compare_faces(
+        image1_data=image1_data,
+        image1_filename=image1.filename or "image1.jpg",
+        image2_data=image2_data,
+        image2_filename=image2.filename or "image2.jpg",
+        threshold=threshold,
+    )
+
+    return JSONResponse(
+        status_code=status.HTTP_200_OK,
+        content=ResponseFormatter.success(
+            data=result.model_dump(),
+            correlation_id=get_correlation_id(),
+        ),
+    )
