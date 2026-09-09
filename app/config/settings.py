@@ -124,6 +124,40 @@ class Settings(BaseSettings):
         description="Similarity threshold for 1:1 face comparison (cosine similarity, 0.0-1.0)"
     )
     
+    # Image Quality Validation Settings
+    quality_validation_enabled: bool = Field(
+        default=True,
+        description="Enable image quality validation before face comparison/search"
+    )
+    quality_min_image_width: int = Field(
+        default=200,
+        description="Minimum required image width in pixels"
+    )
+    quality_min_image_height: int = Field(
+        default=200,
+        description="Minimum required image height in pixels"
+    )
+    quality_min_face_size: int = Field(
+        default=80,
+        description="Minimum face bounding box width/height in pixels"
+    )
+    quality_blur_threshold: float = Field(
+        default=100.0,
+        description="Minimum Laplacian variance threshold for blur detection (higher = sharper)"
+    )
+    quality_lighting_min: float = Field(
+        default=40.0,
+        description="Minimum mean brightness (0-255, below this is underexposed/too dark)"
+    )
+    quality_lighting_max: float = Field(
+        default=220.0,
+        description="Maximum mean brightness (0-255, above this is overexposed/too bright)"
+    )
+    quality_boundary_margin: int = Field(
+        default=5,
+        description="Minimum margin in pixels from image boundary to ensure face is not cut off"
+    )
+    
     @property
     def image_formats_set(self) -> set[str]:
         """Convert image formats string to set"""

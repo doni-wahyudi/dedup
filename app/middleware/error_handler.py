@@ -18,6 +18,12 @@ from app.utils.exceptions import (
     ImageTooLargeError,
     DatabaseError,
     EmbeddingExtractionError,
+    ImageResolutionError,
+    ImageBlurError,
+    ImageLightingError,
+    FaceTooSmallError,
+    FaceNotFullyVisibleError,
+    FaceOccludedError,
 )
 from app.utils.response import ResponseFormatter
 
@@ -39,25 +45,18 @@ async def global_exception_handler(request: Request, exc: Exception) -> JSONResp
     error_details = None
     
     # Map custom exceptions
-    if isinstance(exc, FaceDetectionError):
-        status_code = status.HTTP_400_BAD_REQUEST
-        error_code = exc.code
-        error_message = exc.message
-        error_details = exc.details
-        
-    elif isinstance(exc, MultipleFacesError):
-        status_code = status.HTTP_400_BAD_REQUEST
-        error_code = exc.code
-        error_message = exc.message
-        error_details = exc.details
-        
-    elif isinstance(exc, InvalidImageError):
-        status_code = status.HTTP_400_BAD_REQUEST
-        error_code = exc.code
-        error_message = exc.message
-        error_details = exc.details
-        
-    elif isinstance(exc, UnsupportedImageFormatError):
+    if isinstance(exc, (
+        FaceDetectionError,
+        MultipleFacesError,
+        InvalidImageError,
+        UnsupportedImageFormatError,
+        ImageResolutionError,
+        ImageBlurError,
+        ImageLightingError,
+        FaceTooSmallError,
+        FaceNotFullyVisibleError,
+        FaceOccludedError,
+    )):
         status_code = status.HTTP_400_BAD_REQUEST
         error_code = exc.code
         error_message = exc.message

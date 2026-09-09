@@ -10,6 +10,7 @@ import structlog
 from PIL import Image
 
 from app.config.settings import settings
+from app.core.quality import ImageQualityValidator
 from app.utils.exceptions import (
     FaceDetectionError,
     MultipleFacesError,
@@ -18,6 +19,12 @@ from app.utils.exceptions import (
     ImageTooLargeError,
     EmbeddingExtractionError,
     DatabaseError,
+    ImageResolutionError,
+    ImageBlurError,
+    ImageLightingError,
+    FaceTooSmallError,
+    FaceNotFullyVisibleError,
+    FaceOccludedError,
 )
 
 logger = structlog.get_logger(__name__)
@@ -158,6 +165,13 @@ class InsightFaceClient:
                     message=f"Image format {image_format} not supported"
                 )
 
+            # Check minimum image resolution
+            if settings.quality_validation_enabled:
+                ImageQualityValidator.validate_resolution(
+                    width=image.size[0],
+                    height=image.size[1]
+                )
+
             # Verify image is not corrupted
             image.verify()
 
@@ -168,9 +182,7 @@ class InsightFaceClient:
                 dimensions=image.size
             )
 
-        except UnsupportedImageFormatError:
-            raise
-        except ImageTooLargeError:
+        except (UnsupportedImageFormatError, ImageTooLargeError, ImageResolutionError):
             raise
         except Exception as e:
             logger.error("image_validation_failed", error=str(e))
@@ -375,6 +387,14 @@ class InsightFaceClient:
         # Step 2: Preprocess
         img_array = self.preprocess_image(file_data)
 
+        # Quality check: Blur & Lighting
+        quality_metrics = {}
+        if settings.quality_validation_enabled:
+            blur_score = ImageQualityValidator.validate_blur(img_array)
+            lighting_score = ImageQualityValidator.validate_lighting(img_array)
+            quality_metrics["blur_score"] = blur_score
+            quality_metrics["brightness"] = lighting_score
+
         # Step 3 & 4: Detect and extract (combined for efficiency)
         try:
             faces = self.app.get(img_array)
@@ -384,6 +404,17 @@ class InsightFaceClient:
 
             # Get first (and only, or largest) face
             face = faces[0]
+
+            # Quality check: Face integrity & occlusion
+            if settings.quality_validation_enabled:
+                integrity_metrics = ImageQualityValidator.validate_face_integrity(
+                    img_shape=img_array.shape,
+                    bbox=face.bbox.tolist()
+                )
+                occlusion_metrics = ImageQualityValidator.validate_landmarks_and_occlusion(face)
+                quality_metrics.update(integrity_metrics)
+                quality_metrics.update(occlusion_metrics)
+
             embedding = face.embedding
 
             # Normalize embedding
@@ -398,7 +429,8 @@ class InsightFaceClient:
                 "embedding_dimension": embedding.shape[0],
                 "image_shape": img_array.shape,
                 "confidence": float(face.det_score),
-                "provider": "insightface"
+                "provider": "insightface",
+                "quality_metrics": quality_metrics
             }
 
             # Add landmarks if available
@@ -413,7 +445,17 @@ class InsightFaceClient:
 
             return embedding, metadata
 
-        except (FaceDetectionError, MultipleFacesError, DatabaseError):
+        except (
+            FaceDetectionError,
+            MultipleFacesError,
+            DatabaseError,
+            ImageResolutionError,
+            ImageBlurError,
+            ImageLightingError,
+            FaceTooSmallError,
+            FaceNotFullyVisibleError,
+            FaceOccludedError,
+        ):
             raise
         except Exception as e:
             logger.error("face_processing_failed", error=str(e))
