@@ -53,3 +53,11 @@ logs/
 
 # Docker
 .dockerignore
+
+# Warmup & local test assets
+warmup/
+
+# Visual Demo App
+# demo/
+ARCHITECTURE_OVERVIEW.html
+ARCHITECTURE_OVERVIEW.md

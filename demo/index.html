@@ -1,0 +1,1240 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>BTPN Syariah — Biometric Dedup & Face Match Demo</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --bg: #0b0f19;
+      --card-bg: rgba(23, 30, 48, 0.7);
+      --card-border: rgba(255, 255, 255, 0.08);
+      --card-border-focus: rgba(99, 102, 241, 0.5);
+      --text: #f8fafc;
+      --text-muted: #94a3b8;
+      --primary: #3b82f6;
+      --primary-gradient: linear-gradient(135deg, #3b82f6 0%, #6366f1 100%);
+      --emerald: #10b981;
+      --emerald-glow: rgba(16, 185, 129, 0.25);
+      --crimson: #ef4444;
+      --crimson-glow: rgba(239, 68, 68, 0.25);
+      --amber: #f59e0b;
+      --radius-sm: 8px;
+      --radius-md: 14px;
+      --radius-lg: 20px;
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    body {
+      font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+      background-color: var(--bg);
+      background-image: 
+        radial-gradient(at 0% 0%, rgba(59, 130, 246, 0.12) 0px, transparent 50%),
+        radial-gradient(at 100% 100%, rgba(99, 102, 241, 0.1) 0px, transparent 50%);
+      background-attachment: fixed;
+      color: var(--text);
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+    }
+
+    header {
+      border-bottom: 1px solid var(--card-border);
+      background: rgba(11, 15, 25, 0.85);
+      backdrop-filter: blur(12px);
+      position: sticky;
+      top: 0;
+      z-index: 50;
+      padding: 1rem 2rem;
+    }
+
+    .nav-container {
+      max-width: 1280px;
+      margin: 0 auto;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 1rem;
+      flex-wrap: wrap;
+    }
+
+    .brand {
+      display: flex;
+      align-items: center;
+      gap: 0.75rem;
+    }
+
+    .brand-logo {
+      width: 38px;
+      height: 38px;
+      border-radius: 10px;
+      background: var(--primary-gradient);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      box-shadow: 0 4px 14px rgba(59, 130, 246, 0.4);
+    }
+
+    .brand-logo svg {
+      width: 22px;
+      height: 22px;
+      fill: #ffffff;
+    }
+
+    .brand-title {
+      font-size: 1.15rem;
+      font-weight: 700;
+      letter-spacing: -0.02em;
+    }
+
+    .brand-subtitle {
+      font-size: 0.75rem;
+      color: var(--text-muted);
+      font-weight: 500;
+    }
+
+    .server-status {
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+      background: rgba(255, 255, 255, 0.04);
+      border: 1px solid var(--card-border);
+      padding: 0.4rem 0.85rem;
+      border-radius: 9999px;
+      font-size: 0.8rem;
+    }
+
+    .status-dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      background: var(--amber);
+      box-shadow: 0 0 8px var(--amber);
+      transition: all 0.3s;
+    }
+
+    .status-dot.online {
+      background: var(--emerald);
+      box-shadow: 0 0 10px var(--emerald);
+    }
+
+    .status-dot.offline {
+      background: var(--crimson);
+      box-shadow: 0 0 10px var(--crimson);
+    }
+
+    main {
+      flex: 1;
+      max-width: 1280px;
+      width: 100%;
+      margin: 0 auto;
+      padding: 2rem;
+    }
+
+    /* Controls bar */
+    .controls-bar {
+      background: var(--card-bg);
+      border: 1px solid var(--card-border);
+      border-radius: var(--radius-md);
+      padding: 1.25rem 1.5rem;
+      margin-bottom: 2rem;
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+      gap: 1.25rem;
+      backdrop-filter: blur(10px);
+    }
+
+    .control-group {
+      display: flex;
+      flex-direction: column;
+      gap: 0.45rem;
+    }
+
+    .control-label {
+      font-size: 0.8rem;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      color: var(--text-muted);
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+
+    .control-input, .control-select {
+      background: rgba(11, 15, 25, 0.7);
+      border: 1px solid var(--card-border);
+      border-radius: var(--radius-sm);
+      color: var(--text);
+      padding: 0.6rem 0.85rem;
+      font-size: 0.9rem;
+      font-family: inherit;
+      outline: none;
+      transition: border-color 0.2s, box-shadow 0.2s;
+    }
+
+    .control-input:focus, .control-select:focus {
+      border-color: var(--primary);
+      box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.2);
+    }
+
+    .slider-container {
+      display: flex;
+      align-items: center;
+      gap: 0.75rem;
+    }
+
+    .slider {
+      flex: 1;
+      accent-color: var(--primary);
+      cursor: pointer;
+    }
+
+    .slider-val {
+      font-family: 'JetBrains Mono', monospace;
+      font-weight: 600;
+      color: var(--primary);
+      min-width: 40px;
+    }
+
+    /* Upload Grid */
+    .upload-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 1.5rem;
+      margin-bottom: 2rem;
+    }
+
+    @media (max-width: 840px) {
+      .upload-grid {
+        grid-template-columns: 1fr;
+      }
+    }
+
+    .dropzone-card {
+      background: var(--card-bg);
+      border: 2px dashed var(--card-border);
+      border-radius: var(--radius-lg);
+      padding: 1.5rem;
+      position: relative;
+      transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      min-height: 380px;
+      backdrop-filter: blur(10px);
+      cursor: pointer;
+      overflow: hidden;
+    }
+
+    .dropzone-card:hover {
+      border-color: var(--primary);
+      background: rgba(30, 41, 65, 0.8);
+      transform: translateY(-2px);
+    }
+
+    .dropzone-card.drag-over {
+      border-color: var(--emerald);
+      background: rgba(16, 185, 129, 0.08);
+      transform: scale(1.01);
+    }
+
+    .dropzone-card.has-image {
+      border-style: solid;
+      border-color: var(--card-border);
+      padding: 1rem;
+      cursor: default;
+    }
+
+    .dropzone-card.has-error {
+      border-color: var(--crimson) !important;
+      background: rgba(239, 68, 68, 0.08) !important;
+      box-shadow: 0 0 24px var(--crimson-glow);
+      animation: pulse-red 2s infinite;
+    }
+
+    @keyframes pulse-red {
+      0%, 100% { border-color: rgba(239, 68, 68, 0.8); }
+      50% { border-color: rgba(239, 68, 68, 0.3); }
+    }
+
+    .dropzone-header {
+      width: 100%;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 0.75rem;
+    }
+
+    .dropzone-badge {
+      font-size: 0.75rem;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      padding: 0.25rem 0.6rem;
+      border-radius: 6px;
+      background: rgba(255, 255, 255, 0.06);
+      color: var(--text-muted);
+    }
+
+    .empty-state {
+      text-align: center;
+      padding: 2rem 1rem;
+      pointer-events: none;
+    }
+
+    .upload-icon {
+      width: 56px;
+      height: 56px;
+      margin: 0 auto 1rem;
+      border-radius: 14px;
+      background: rgba(59, 130, 246, 0.1);
+      color: var(--primary);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      transition: transform 0.2s;
+    }
+
+    .dropzone-card:hover .upload-icon {
+      transform: translateY(-4px) scale(1.05);
+    }
+
+    .upload-icon svg {
+      width: 28px;
+      height: 28px;
+    }
+
+    .empty-title {
+      font-size: 1.05rem;
+      font-weight: 600;
+      margin-bottom: 0.35rem;
+    }
+
+    .empty-desc {
+      font-size: 0.82rem;
+      color: var(--text-muted);
+    }
+
+    .preview-container {
+      width: 100%;
+      height: 280px;
+      position: relative;
+      border-radius: var(--radius-md);
+      overflow: hidden;
+      background: #000;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .preview-image {
+      max-width: 100%;
+      max-height: 100%;
+      object-fit: contain;
+    }
+
+    .image-meta-bar {
+      width: 100%;
+      margin-top: 0.75rem;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      font-size: 0.78rem;
+      color: var(--text-muted);
+      font-family: 'JetBrains Mono', monospace;
+    }
+
+    .btn-clear-img {
+      background: rgba(239, 68, 68, 0.15);
+      color: #f87171;
+      border: 1px solid rgba(239, 68, 68, 0.3);
+      padding: 0.25rem 0.6rem;
+      border-radius: 6px;
+      cursor: pointer;
+      font-size: 0.75rem;
+      font-weight: 600;
+      transition: background 0.2s;
+    }
+
+    .btn-clear-img:hover {
+      background: rgba(239, 68, 68, 0.3);
+    }
+
+    /* Action bar */
+    .action-bar {
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      gap: 1rem;
+      margin-bottom: 2.5rem;
+    }
+
+    .btn-primary {
+      background: var(--primary-gradient);
+      color: #ffffff;
+      border: none;
+      padding: 0.95rem 2.5rem;
+      font-size: 1.05rem;
+      font-weight: 700;
+      border-radius: var(--radius-md);
+      cursor: pointer;
+      display: inline-flex;
+      align-items: center;
+      gap: 0.65rem;
+      box-shadow: 0 4px 20px rgba(59, 130, 246, 0.4);
+      transition: all 0.2s ease;
+    }
+
+    .btn-primary:hover:not(:disabled) {
+      transform: translateY(-2px);
+      box-shadow: 0 6px 28px rgba(59, 130, 246, 0.5);
+    }
+
+    .btn-primary:active:not(:disabled) {
+      transform: translateY(0);
+    }
+
+    .btn-primary:disabled {
+      opacity: 0.5;
+      cursor: not-allowed;
+      box-shadow: none;
+    }
+
+    .btn-secondary {
+      background: rgba(255, 255, 255, 0.05);
+      color: var(--text);
+      border: 1px solid var(--card-border);
+      padding: 0.95rem 1.5rem;
+      font-size: 0.95rem;
+      font-weight: 600;
+      border-radius: var(--radius-md);
+      cursor: pointer;
+      display: inline-flex;
+      align-items: center;
+      gap: 0.5rem;
+      transition: background 0.2s;
+    }
+
+    .btn-secondary:hover {
+      background: rgba(255, 255, 255, 0.1);
+    }
+
+    /* Results section */
+    .results-card {
+      background: var(--card-bg);
+      border: 1px solid var(--card-border);
+      border-radius: var(--radius-lg);
+      padding: 2rem;
+      backdrop-filter: blur(12px);
+      display: none;
+      animation: fadeIn 0.4s ease-out;
+    }
+
+    @keyframes fadeIn {
+      from { opacity: 0; transform: translateY(12px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+
+    .verdict-banner {
+      border-radius: var(--radius-md);
+      padding: 1.5rem;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 1.5rem;
+      margin-bottom: 2rem;
+      flex-wrap: wrap;
+    }
+
+    .verdict-banner.match {
+      background: linear-gradient(135deg, rgba(16, 185, 129, 0.15) 0%, rgba(5, 150, 105, 0.25) 100%);
+      border: 1px solid rgba(16, 185, 129, 0.4);
+      box-shadow: 0 8px 32px var(--emerald-glow);
+    }
+
+    .verdict-banner.no-match {
+      background: linear-gradient(135deg, rgba(239, 68, 68, 0.15) 0%, rgba(220, 38, 38, 0.25) 100%);
+      border: 1px solid rgba(239, 68, 68, 0.4);
+      box-shadow: 0 8px 32px var(--crimson-glow);
+    }
+
+    .verdict-banner.error {
+      background: linear-gradient(135deg, rgba(245, 158, 11, 0.15) 0%, rgba(217, 119, 6, 0.25) 100%);
+      border: 1px solid rgba(245, 158, 11, 0.4);
+    }
+
+    .verdict-main {
+      display: flex;
+      align-items: center;
+      gap: 1.25rem;
+    }
+
+    .verdict-icon {
+      width: 56px;
+      height: 56px;
+      border-radius: 14px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      flex-shrink: 0;
+    }
+
+    .verdict-banner.match .verdict-icon {
+      background: var(--emerald);
+      color: #ffffff;
+      box-shadow: 0 4px 16px var(--emerald-glow);
+    }
+
+    .verdict-banner.no-match .verdict-icon {
+      background: var(--crimson);
+      color: #ffffff;
+      box-shadow: 0 4px 16px var(--crimson-glow);
+    }
+
+    .verdict-banner.error .verdict-icon {
+      background: var(--amber);
+      color: #ffffff;
+    }
+
+    .verdict-icon svg {
+      width: 32px;
+      height: 32px;
+    }
+
+    .verdict-title {
+      font-size: 1.65rem;
+      font-weight: 800;
+      letter-spacing: -0.02em;
+    }
+
+    .verdict-banner.match .verdict-title { color: #6ee7b7; }
+    .verdict-banner.no-match .verdict-title { color: #fca5a5; }
+    .verdict-banner.error .verdict-title { color: #fde68a; }
+
+    .verdict-desc {
+      font-size: 0.9rem;
+      color: var(--text-muted);
+      margin-top: 0.2rem;
+    }
+
+    .similarity-metric-box {
+      text-align: right;
+    }
+
+    .similarity-value {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 2.25rem;
+      font-weight: 800;
+      line-height: 1;
+    }
+
+    .verdict-banner.match .similarity-value { color: #34d399; }
+    .verdict-banner.no-match .similarity-value { color: #f87171; }
+
+    .similarity-sub {
+      font-size: 0.78rem;
+      color: var(--text-muted);
+      margin-top: 0.4rem;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+    }
+
+    /* Score gauge bar */
+    .gauge-wrapper {
+      margin-bottom: 2rem;
+    }
+
+    .gauge-bar-track {
+      width: 100%;
+      height: 12px;
+      background: rgba(255, 255, 255, 0.06);
+      border-radius: 9999px;
+      position: relative;
+      overflow: visible;
+      border: 1px solid var(--card-border);
+    }
+
+    .gauge-fill {
+      height: 100%;
+      border-radius: 9999px;
+      background: var(--primary-gradient);
+      transition: width 0.8s cubic-bezier(0.4, 0, 0.2, 1);
+    }
+
+    .gauge-fill.match {
+      background: linear-gradient(90deg, #10b981 0%, #34d399 100%);
+    }
+
+    .gauge-fill.no-match {
+      background: linear-gradient(90deg, #ef4444 0%, #f87171 100%);
+    }
+
+    .threshold-marker {
+      position: absolute;
+      top: -6px;
+      bottom: -6px;
+      width: 3px;
+      background: #ffffff;
+      box-shadow: 0 0 10px #ffffff;
+      border-radius: 2px;
+      z-index: 2;
+    }
+
+    .threshold-tooltip {
+      position: absolute;
+      top: -26px;
+      transform: translateX(-50%);
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 0.68rem;
+      background: #1e293b;
+      border: 1px solid var(--card-border);
+      padding: 0.15rem 0.45rem;
+      border-radius: 4px;
+      color: #cbd5e1;
+      white-space: nowrap;
+    }
+
+    /* Details Grid */
+    .metrics-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+      gap: 1rem;
+      margin-bottom: 2rem;
+    }
+
+    .metric-card {
+      background: rgba(11, 15, 25, 0.5);
+      border: 1px solid var(--card-border);
+      border-radius: var(--radius-md);
+      padding: 1rem 1.25rem;
+    }
+
+    .metric-title {
+      font-size: 0.75rem;
+      color: var(--text-muted);
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      margin-bottom: 0.35rem;
+    }
+
+    .metric-content {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 1.15rem;
+      font-weight: 600;
+    }
+
+    .metric-badge {
+      display: inline-block;
+      font-size: 0.72rem;
+      padding: 0.15rem 0.5rem;
+      border-radius: 4px;
+      font-weight: 600;
+      margin-top: 0.35rem;
+    }
+
+    .metric-badge.fast {
+      background: rgba(16, 185, 129, 0.15);
+      color: #34d399;
+    }
+
+    /* JSON Accordion */
+    .json-details {
+      background: #070a13;
+      border: 1px solid var(--card-border);
+      border-radius: var(--radius-md);
+      overflow: hidden;
+    }
+
+    .json-summary {
+      padding: 0.85rem 1.25rem;
+      font-size: 0.85rem;
+      font-weight: 600;
+      color: var(--text-muted);
+      cursor: pointer;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      user-select: none;
+    }
+
+    .json-summary:hover {
+      color: var(--text);
+    }
+
+    .json-pre {
+      padding: 1.25rem;
+      margin: 0;
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 0.82rem;
+      color: #93c5fd;
+      background: #050811;
+      overflow-x: auto;
+      border-top: 1px solid var(--card-border);
+      max-height: 320px;
+    }
+
+    /* Spinner */
+    .spinner {
+      width: 20px;
+      height: 20px;
+      border: 2px solid rgba(255, 255, 255, 0.3);
+      border-top-color: #ffffff;
+      border-radius: 50%;
+      animation: spin 0.7s linear infinite;
+      display: none;
+    }
+
+    @keyframes spin {
+      to { transform: rotate(360deg); }
+    }
+  </style>
+</head>
+<body>
+
+  <!-- Top Navbar -->
+  <header>
+    <div class="nav-container">
+      <div class="brand">
+        <div class="brand-logo">
+          <svg viewBox="0 0 24 24">
+            <path d="M9 11.75c-.69 0-1.25.56-1.25 1.25s.56 1.25 1.25 1.25 1.25-.56 1.25-1.25-.56-1.25-1.25-1.25zm6 0c-.69 0-1.25.56-1.25 1.25s.56 1.25 1.25 1.25 1.25-.56 1.25-1.25-.56-1.25-1.25-1.25zM12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm0 18c-4.41 0-8-3.59-8-8 0-.29.02-.58.05-.86 2.36-1.05 4.23-2.98 5.21-5.37C11.07 8.33 14.05 10 17.42 10c.78 0 1.53-.09 2.25-.26.21.71.33 1.47.33 2.26 0 4.41-3.59 8-8 8z"/>
+          </svg>
+        </div>
+        <div>
+          <div class="brand-title">Biometric Dedup & Face Compare Demo</div>
+          <div class="brand-subtitle">PT Bank BTPN Syariah, Tbk &bull; InsightFace 1:1 Synchronous Verification</div>
+        </div>
+      </div>
+
+      <div class="server-status">
+        <div class="status-dot" id="statusDot"></div>
+        <span id="statusText">Checking API...</span>
+      </div>
+    </div>
+  </header>
+
+  <main>
+    <!-- Controls & Headers configuration -->
+    <div class="controls-bar">
+      <div class="control-group">
+        <label class="control-label" for="apiBaseUrl">API Base URL</label>
+        <input type="text" id="apiBaseUrl" class="control-input" value="http://127.0.0.1:8000">
+      </div>
+
+      <div class="control-group">
+        <label class="control-label" for="sourceChannel">Source Channel (X-Channel)</label>
+        <select id="sourceChannel" class="control-select">
+          <option value="mobile-banking">MOBILE (Mobile Banking App)</option>
+          <option value="tabungan-emas">TABUNGAN_EMAS (Gold Savings)</option>
+          <option value="branch-portal">BRANCH_PORTAL (Cabang)</option>
+          <option value="mms">MMS (Mobile Management System)</option>
+          <option value="agent-assisted">AGENT_ASSISTED (Petugas Lapangan)</option>
+        </select>
+      </div>
+
+      <div class="control-group">
+        <label class="control-label" for="correlationId">
+          <span>Correlation ID</span>
+          <span style="cursor: pointer; color: var(--primary);" onclick="generateNewCorrelationId()">🔄 New</span>
+        </label>
+        <input type="text" id="correlationId" class="control-input" style="font-family: 'JetBrains Mono', monospace; font-size: 0.8rem;">
+      </div>
+
+      <div class="control-group">
+        <label class="control-label">
+          <span>Match Threshold</span>
+          <span class="slider-val" id="thresholdVal">0.40</span>
+        </label>
+        <div class="slider-container">
+          <input type="range" id="thresholdSlider" class="slider" min="0.10" max="0.90" step="0.05" value="0.40">
+        </div>
+      </div>
+    </div>
+
+    <!-- Dual Dropzones -->
+    <div class="upload-grid">
+      <!-- Image 1 -->
+      <div class="dropzone-card" id="dropzone1" onclick="triggerFileInput(1)">
+        <input type="file" id="fileInput1" accept="image/jpeg,image/png,image/jpg" style="display: none;" onchange="handleFileSelected(1, event)">
+        <div class="dropzone-header">
+          <span class="dropzone-badge">IMAGE 1 &bull; MASTER / ENROLLMENT PHOTO</span>
+          <button class="btn-clear-img" id="clearBtn1" style="display: none;" onclick="clearImage(1, event)">Clear</button>
+        </div>
+
+        <div class="empty-state" id="emptyState1">
+          <div class="upload-icon">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M17 8l-5-5-5 5M12 3v12"/>
+            </svg>
+          </div>
+          <div class="empty-title">Upload Foto Wajah 1</div>
+          <div class="empty-desc">Tarik & lepas file atau klik untuk memilih (KTP / Foto Pendaftaran)</div>
+        </div>
+
+        <div class="preview-container" id="previewContainer1" style="display: none;">
+          <img id="previewImg1" class="preview-image" alt="Preview 1">
+        </div>
+
+        <div class="image-meta-bar" id="metaBar1" style="display: none;">
+          <span id="metaName1">filename.jpg</span>
+          <span id="metaDim1">0x0</span>
+        </div>
+      </div>
+
+      <!-- Image 2 -->
+      <div class="dropzone-card" id="dropzone2" onclick="triggerFileInput(2)">
+        <input type="file" id="fileInput2" accept="image/jpeg,image/png,image/jpg" style="display: none;" onchange="handleFileSelected(2, event)">
+        <div class="dropzone-header">
+          <span class="dropzone-badge">IMAGE 2 &bull; VERIFICATION / LIVE SELFIE</span>
+          <button class="btn-clear-img" id="clearBtn2" style="display: none;" onclick="clearImage(2, event)">Clear</button>
+        </div>
+
+        <div class="empty-state" id="emptyState2">
+          <div class="upload-icon">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M17 8l-5-5-5 5M12 3v12"/>
+            </svg>
+          </div>
+          <div class="empty-title">Upload Foto Wajah 2</div>
+          <div class="empty-desc">Tarik & lepas file atau klik untuk memilih (Foto Selfie Saat Login)</div>
+        </div>
+
+        <div class="preview-container" id="previewContainer2" style="display: none;">
+          <img id="previewImg2" class="preview-image" alt="Preview 2">
+        </div>
+
+        <div class="image-meta-bar" id="metaBar2" style="display: none;">
+          <span id="metaName2">filename.jpg</span>
+          <span id="metaDim2">0x0</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- Action Bar -->
+    <div class="action-bar">
+      <button class="btn-secondary" onclick="swapImages()">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <path d="M7 16V4m0 0L3 8m4-4l4 4m6 4v12m0 0l4-4m-4 4l-4-4"/>
+        </svg>
+        Tukar Posisi
+      </button>
+
+      <button class="btn-primary" id="compareBtn" onclick="performComparison()" disabled>
+        <span class="spinner" id="btnSpinner"></span>
+        <span id="btnText">Bandingkan Wajah (1:1 Face Match)</span>
+      </button>
+    </div>
+
+    <!-- Results Panel -->
+    <div class="results-card" id="resultsCard">
+      <!-- Verdict Banner -->
+      <div class="verdict-banner" id="verdictBanner">
+        <div class="verdict-main">
+          <div class="verdict-icon" id="verdictIcon">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+              <polyline points="20 6 9 17 4 12"></polyline>
+            </svg>
+          </div>
+          <div>
+            <div class="verdict-title" id="verdictTitle">MATCH</div>
+            <div class="verdict-desc" id="verdictDesc">Kedua foto merupakan orang yang sama berdasarkan skor kemiripan biometrik.</div>
+          </div>
+        </div>
+
+        <div class="similarity-metric-box">
+          <div class="similarity-value" id="similarityValue">0.0%</div>
+          <div class="similarity-sub">Similarity Score</div>
+        </div>
+      </div>
+
+      <!-- Similarity Gauge Progress -->
+      <div class="gauge-wrapper" id="gaugeWrapper">
+        <div class="gauge-bar-track">
+          <div class="gauge-fill" id="gaugeFill" style="width: 0%;"></div>
+          <div class="threshold-marker" id="thresholdMarker" style="left: 40%;">
+            <div class="threshold-tooltip" id="thresholdTooltip">Threshold: 0.40</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Metrics Grid -->
+      <div class="metrics-grid">
+        <div class="metric-card">
+          <div class="metric-title">Verdict Status</div>
+          <div class="metric-content" id="metricStatus">-</div>
+        </div>
+
+        <div class="metric-card">
+          <div class="metric-title">Waktu Pemrosesan</div>
+          <div class="metric-content" id="metricTime">-</div>
+          <span class="metric-badge fast" id="slaBadge">SLA &lt; 5s PASS</span>
+        </div>
+
+        <div class="metric-card">
+          <div class="metric-title">Source Channel</div>
+          <div class="metric-content" id="metricChannel">-</div>
+        </div>
+
+        <div class="metric-card">
+          <div class="metric-title">Correlation ID</div>
+          <div class="metric-content" id="metricCorrelation" style="font-size: 0.82rem; word-break: break-all;">-</div>
+        </div>
+      </div>
+
+      <!-- Raw JSON Details -->
+      <details class="json-details">
+        <summary class="json-summary">
+          <span>Lihat Raw JSON Response</span>
+          <span style="font-size: 0.75rem; color: var(--primary);">▼ Expand</span>
+        </summary>
+        <pre class="json-pre" id="jsonOutput">// JSON response will appear here</pre>
+      </details>
+    </div>
+  </main>
+
+  <script>
+    let file1 = null;
+    let file2 = null;
+
+    // Elements
+    const dropzone1 = document.getElementById('dropzone1');
+    const dropzone2 = document.getElementById('dropzone2');
+    const fileInput1 = document.getElementById('fileInput1');
+    const fileInput2 = document.getElementById('fileInput2');
+    const compareBtn = document.getElementById('compareBtn');
+    const thresholdSlider = document.getElementById('thresholdSlider');
+    const thresholdVal = document.getElementById('thresholdVal');
+    const correlationIdInput = document.getElementById('correlationId');
+    const statusDot = document.getElementById('statusDot');
+    const statusText = document.getElementById('statusText');
+    const apiBaseUrlInput = document.getElementById('apiBaseUrl');
+
+    // Generate random UUIDv4
+    function generateNewCorrelationId() {
+      const uuid = 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function(c) {
+        const r = Math.random() * 16 | 0;
+        const v = c === 'x' ? r : (r & 0x3 | 0x8);
+        return v.toString(16);
+      });
+      correlationIdInput.value = uuid;
+    }
+
+    // Health check polling
+    async function checkHealth() {
+      const baseUrl = apiBaseUrlInput.value.replace(/\/+$/, '');
+      try {
+        const res = await fetch(`${baseUrl}/health`, { signal: AbortSignal.timeout(3000) });
+        if (res.ok) {
+          const data = await res.json();
+          statusDot.className = 'status-dot online';
+          statusText.textContent = `Online (${data.status || 'Ready'})`;
+        } else {
+          statusDot.className = 'status-dot offline';
+          statusText.textContent = `HTTP ${res.status}`;
+        }
+      } catch (err) {
+        statusDot.className = 'status-dot offline';
+        statusText.textContent = 'Server Offline (127.0.0.1:8000)';
+      }
+    }
+
+    // Threshold slider listener
+    thresholdSlider.addEventListener('input', (e) => {
+      thresholdVal.textContent = parseFloat(e.target.value).toFixed(2);
+      const marker = document.getElementById('thresholdMarker');
+      const tooltip = document.getElementById('thresholdTooltip');
+      const pct = (parseFloat(e.target.value) * 100).toFixed(0);
+      marker.style.left = `${pct}%`;
+      tooltip.textContent = `Threshold: ${parseFloat(e.target.value).toFixed(2)}`;
+    });
+
+    // File selection trigger
+    function triggerFileInput(idx) {
+      if (idx === 1 && !file1) fileInput1.click();
+      if (idx === 2 && !file2) fileInput2.click();
+    }
+
+    function handleFileSelected(idx, event) {
+      const file = event.target.files[0];
+      if (!file) return;
+      loadSingleFile(idx, file);
+    }
+
+    function loadSingleFile(idx, file) {
+      if (idx === 1) file1 = file;
+      if (idx === 2) file2 = file;
+
+      const dz = document.getElementById(`dropzone${idx}`);
+      const emptyState = document.getElementById(`emptyState${idx}`);
+      const previewContainer = document.getElementById(`previewContainer${idx}`);
+      const previewImg = document.getElementById(`previewImg${idx}`);
+      const clearBtn = document.getElementById(`clearBtn${idx}`);
+      const metaBar = document.getElementById(`metaBar${idx}`);
+      const metaName = document.getElementById(`metaName${idx}`);
+      const metaDim = document.getElementById(`metaDim${idx}`);
+
+      dz.classList.add('has-image');
+      dz.classList.remove('has-error');
+      emptyState.style.display = 'none';
+      previewContainer.style.display = 'flex';
+      clearBtn.style.display = 'inline-block';
+      metaBar.style.display = 'flex';
+
+      metaName.textContent = file.name;
+
+      const reader = new FileReader();
+      reader.onload = function(e) {
+        previewImg.src = e.target.result;
+        const img = new Image();
+        img.onload = function() {
+          metaDim.textContent = `${img.naturalWidth} x ${img.naturalHeight} (${(file.size / 1024).toFixed(1)} KB)`;
+        };
+        img.src = e.target.result;
+      };
+      reader.readAsDataURL(file);
+
+      updateCompareButton();
+    }
+
+    function clearImage(idx, event) {
+      if (event) event.stopPropagation();
+
+      if (idx === 1) {
+        file1 = null;
+        fileInput1.value = '';
+      } else {
+        file2 = null;
+        fileInput2.value = '';
+      }
+
+      const dz = document.getElementById(`dropzone${idx}`);
+      const emptyState = document.getElementById(`emptyState${idx}`);
+      const previewContainer = document.getElementById(`previewContainer${idx}`);
+      const previewImg = document.getElementById(`previewImg${idx}`);
+      const clearBtn = document.getElementById(`clearBtn${idx}`);
+      const metaBar = document.getElementById(`metaBar${idx}`);
+
+      dz.classList.remove('has-image', 'has-error');
+      emptyState.style.display = 'block';
+      previewContainer.style.display = 'none';
+      previewImg.src = '';
+      clearBtn.style.display = 'none';
+      metaBar.style.display = 'none';
+
+      updateCompareButton();
+    }
+
+    function updateCompareButton() {
+      compareBtn.disabled = !(file1 && file2);
+    }
+
+    function swapImages() {
+      if (!file1 && !file2) return;
+      const tempFile = file1;
+      const tempFile2 = file2;
+
+      clearImage(1);
+      clearImage(2);
+
+      if (tempFile2) loadSingleFile(1, tempFile2);
+      if (tempFile) loadSingleFile(2, tempFile);
+    }
+
+    // Drag and Drop listeners
+    [1, 2].forEach(idx => {
+      const dz = document.getElementById(`dropzone${idx}`);
+      
+      ['dragenter', 'dragover'].forEach(eventName => {
+        dz.addEventListener(eventName, (e) => {
+          e.preventDefault();
+          e.stopPropagation();
+          dz.classList.add('drag-over');
+        });
+      });
+
+      ['dragleave', 'drop'].forEach(eventName => {
+        dz.addEventListener(eventName, (e) => {
+          e.preventDefault();
+          e.stopPropagation();
+          dz.classList.remove('drag-over');
+        });
+      });
+
+      dz.addEventListener('drop', (e) => {
+        const droppedFiles = e.dataTransfer.files;
+        if (droppedFiles.length > 0) {
+          loadSingleFile(idx, droppedFiles[0]);
+        }
+      });
+    });
+
+    // Main Compare Function
+    async function performComparison() {
+      if (!file1 || !file2) return;
+
+      // Clear previous error borders
+      dropzone1.classList.remove('has-error');
+      dropzone2.classList.remove('has-error');
+
+      const btnSpinner = document.getElementById('btnSpinner');
+      const btnText = document.getElementById('btnText');
+      const resultsCard = document.getElementById('resultsCard');
+
+      compareBtn.disabled = true;
+      btnSpinner.style.display = 'inline-block';
+      btnText.textContent = 'Memproses Biometrik...';
+
+      const baseUrl = apiBaseUrlInput.value.replace(/\/+$/, '');
+      const channel = document.getElementById('sourceChannel').value;
+      const correlationId = correlationIdInput.value.trim() || 'demo-' + Date.now();
+      const threshold = parseFloat(thresholdSlider.value);
+
+      const formData = new FormData();
+      formData.append('image1', file1);
+      formData.append('image2', file2);
+      formData.append('threshold', threshold.toString());
+
+      try {
+        const response = await fetch(`${baseUrl}/api/v1/faces/compare`, {
+          method: 'POST',
+          headers: {
+            'X-Channel': channel,
+            'X-Correlation-ID': correlationId
+          },
+          body: formData
+        });
+
+        const json = await response.json();
+        renderResults(response.status, json, threshold);
+
+      } catch (err) {
+        renderError('CONNECTION_FAILED', `Gagal menghubungi service: ${err.message}`);
+      } finally {
+        compareBtn.disabled = false;
+        btnSpinner.style.display = 'none';
+        btnText.textContent = 'Bandingkan Wajah (1:1 Face Match)';
+        resultsCard.style.display = 'block';
+        resultsCard.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+      }
+    }
+
+    function renderResults(statusCode, json, thresholdUsed) {
+      const banner = document.getElementById('verdictBanner');
+      const icon = document.getElementById('verdictIcon');
+      const title = document.getElementById('verdictTitle');
+      const desc = document.getElementById('verdictDesc');
+      const simVal = document.getElementById('similarityValue');
+      const gaugeWrapper = document.getElementById('gaugeWrapper');
+      const gaugeFill = document.getElementById('gaugeFill');
+      const statusEl = document.getElementById('metricStatus');
+      const timeEl = document.getElementById('metricTime');
+      const slaBadge = document.getElementById('slaBadge');
+      const channelEl = document.getElementById('metricChannel');
+      const corrEl = document.getElementById('metricCorrelation');
+      const jsonOutput = document.getElementById('jsonOutput');
+
+      jsonOutput.textContent = JSON.stringify(json, null, 2);
+
+      if (statusCode === 200 && json.success) {
+        gaugeWrapper.style.display = 'block';
+        const data = json.data || {};
+        const score = data.similarity_score !== undefined ? data.similarity_score : 0;
+        const isMatch = data.is_match === true;
+        const timeMs = data.processing_time_ms || 0;
+
+        if (isMatch) {
+          banner.className = 'verdict-banner match';
+          icon.innerHTML = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"></polyline></svg>`;
+          title.textContent = 'MATCH (Wajah Cocok)';
+          desc.textContent = 'Kedua foto dinyatakan sebagai orang yang sama dengan skor di atas ambang batas.';
+          gaugeFill.className = 'gauge-fill match';
+        } else {
+          banner.className = 'verdict-banner no-match';
+          icon.innerHTML = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>`;
+          title.textContent = 'NO MATCH (Wajah Berbeda)';
+          desc.textContent = 'Kedua foto memiliki skor kemiripan di bawah threshold.';
+          gaugeFill.className = 'gauge-fill no-match';
+        }
+
+        const scorePercent = Math.max(0, Math.min(100, (score * 100))).toFixed(1);
+        simVal.textContent = `${scorePercent}%`;
+        gaugeFill.style.width = `${scorePercent}%`;
+
+        statusEl.textContent = isMatch ? 'Match' : 'No Match';
+        statusEl.style.color = isMatch ? '#34d399' : '#f87171';
+
+        timeEl.textContent = `${timeMs} ms`;
+        slaBadge.textContent = timeMs <= 5000 ? `SLA < 5s PASS (${(timeMs/1000).toFixed(2)}s)` : 'SLA Exceeded';
+        slaBadge.className = timeMs <= 5000 ? 'metric-badge fast' : 'metric-badge';
+
+        channelEl.textContent = json.channel || document.getElementById('sourceChannel').value;
+        corrEl.textContent = json.correlationId || correlationIdInput.value;
+
+      } else {
+        // Error handling (Quality rejection / Bad request)
+        gaugeWrapper.style.display = 'none';
+        banner.className = 'verdict-banner error';
+        icon.innerHTML = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><circle cx="12" cy="12" r="10"></circle><line x1="12" y1="8" x2="12" y2="12"></line><line x1="12" y1="16" x2="12.01" y2="16"></line></svg>`;
+
+        const err = json.error || {};
+        title.textContent = err.code || 'VALIDATION ERROR';
+        desc.textContent = err.message || 'Foto ditolak oleh Image Quality Engine.';
+        simVal.textContent = 'REJECTED';
+        simVal.style.color = '#fde68a';
+
+        statusEl.textContent = 'Rejected';
+        statusEl.style.color = '#f59e0b';
+        timeEl.textContent = '-';
+        slaBadge.textContent = 'Ditolak sebelum pencocokan';
+        slaBadge.className = 'metric-badge';
+        channelEl.textContent = json.channel || '-';
+        corrEl.textContent = json.correlationId || '-';
+
+        // Check if error details mention image1 or image2
+        const details = err.details || {};
+        if (details.field === 'image1' || (err.message && err.message.includes('image1'))) {
+          dropzone1.classList.add('has-error');
+        } else if (details.field === 'image2' || (err.message && err.message.includes('image2'))) {
+          dropzone2.classList.add('has-error');
+        } else {
+          // If unsure, highlight both slightly
+          dropzone1.classList.add('has-error');
+          dropzone2.classList.add('has-error');
+        }
+      }
+    }
+
+    function renderError(code, message) {
+      const banner = document.getElementById('verdictBanner');
+      const title = document.getElementById('verdictTitle');
+      const desc = document.getElementById('verdictDesc');
+      const simVal = document.getElementById('similarityValue');
+      const gaugeWrapper = document.getElementById('gaugeWrapper');
+      const jsonOutput = document.getElementById('jsonOutput');
+
+      gaugeWrapper.style.display = 'none';
+      banner.className = 'verdict-banner error';
+      title.textContent = code;
+      desc.textContent = message;
+      simVal.textContent = 'ERR';
+      simVal.style.color = '#f87171';
+      jsonOutput.textContent = JSON.stringify({ error: code, message: message }, null, 2);
+    }
+
+    // Init
+    generateNewCorrelationId();
+    checkHealth();
+    setInterval(checkHealth, 10000);
+  </script>
+</body>
+</html>
