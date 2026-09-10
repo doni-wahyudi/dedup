@@ -160,12 +160,35 @@ def test_validate_landmarks_low_confidence():
         assert e.code == "FACE_OCCLUDED"
 
 
+def test_validate_blur_scale_normalization():
+    # High resolution image (3000x2000) with a sharp grid/pattern
+    large_img = np.zeros((3000, 2000, 3), dtype=np.uint8)
+    large_img[::20, :] = 255
+    large_img[:, ::20] = 255
+    score = ImageQualityValidator.validate_blur(large_img, threshold=50.0)
+    assert score >= 50.0
+
+
+def test_field_and_filename_in_error():
+    try:
+        ImageQualityValidator.validate_resolution(
+            width=100, height=100, min_width=200, min_height=200,
+            field="image1", filename="selfie.jpg"
+        )
+        assert False, "Should raise ImageResolutionError"
+    except ImageResolutionError as e:
+        assert e.details["field"] == "image1"
+        assert e.details["filename"] == "selfie.jpg"
+        assert "image1 (selfie.jpg):" in e.message
+
+
 if __name__ == "__main__":
     test_validate_resolution_passes()
     test_validate_resolution_fails_width()
     test_validate_resolution_fails_height()
     test_validate_blur_passes()
     test_validate_blur_fails()
+    test_validate_blur_scale_normalization()
     test_validate_lighting_passes()
     test_validate_lighting_fails_too_dark()
     test_validate_lighting_fails_too_bright()
@@ -175,4 +198,5 @@ if __name__ == "__main__":
     test_validate_landmarks_passes()
     test_validate_landmarks_missing()
     test_validate_landmarks_low_confidence()
-    print("ALL 14 QUALITY VALIDATION TESTS PASSED SUCCESSFULLY!")
+    test_field_and_filename_in_error()
+    print("ALL 16 QUALITY VALIDATION TESTS PASSED SUCCESSFULLY!")

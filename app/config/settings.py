@@ -142,7 +142,7 @@ class Settings(BaseSettings):
         description="Minimum face bounding box width/height in pixels"
     )
     quality_blur_threshold: float = Field(
-        default=100.0,
+        default=80.0,
         description="Minimum Laplacian variance threshold for blur detection (higher = sharper)"
     )
     quality_lighting_min: float = Field(

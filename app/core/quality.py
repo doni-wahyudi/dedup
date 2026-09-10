@@ -36,19 +36,11 @@ class ImageQualityValidator:
         width: int,
         height: int,
         min_width: Optional[int] = None,
-        min_height: Optional[int] = None
+        min_height: Optional[int] = None,
+        field: Optional[str] = None,
+        filename: Optional[str] = None
     ) -> Dict[str, int]:
-        """Validate that image resolution meets minimum requirements
-        
-        Args:
-            width: Image width in pixels
-            height: Image height in pixels
-            min_width: Minimum required width (defaults to settings.quality_min_image_width)
-            min_height: Minimum required height (defaults to settings.quality_min_image_height)
-            
-        Raises:
-            ImageResolutionError: If resolution is below minimum
-        """
+        """Validate that image resolution meets minimum requirements"""
         req_min_w = min_width if min_width is not None else settings.quality_min_image_width
         req_min_h = min_height if min_height is not None else settings.quality_min_image_height
 
@@ -58,13 +50,17 @@ class ImageQualityValidator:
                 width=width,
                 height=height,
                 min_width=req_min_w,
-                min_height=req_min_h
+                min_height=req_min_h,
+                field=field,
+                filename=filename
             )
             raise ImageResolutionError(
                 width=width,
                 height=height,
                 min_width=req_min_w,
-                min_height=req_min_h
+                min_height=req_min_h,
+                field=field,
+                filename=filename
             )
 
         return {"width": width, "height": height}
@@ -72,34 +68,45 @@ class ImageQualityValidator:
     @staticmethod
     def validate_blur(
         img_bgr: np.ndarray,
-        threshold: Optional[float] = None
+        threshold: Optional[float] = None,
+        field: Optional[str] = None,
+        filename: Optional[str] = None
     ) -> float:
-        """Validate image sharpness using Variance of Laplacian
+        """Validate image sharpness using Variance of Laplacian with scale normalization
         
-        Args:
-            img_bgr: Image as numpy array in BGR format
-            threshold: Minimum sharpness threshold (defaults to settings.quality_blur_threshold)
-            
-        Returns:
-            blur_score (higher = sharper, lower = more blurry)
-            
-        Raises:
-            ImageBlurError: If blur_score is below threshold
+        Note: High-resolution images (e.g. 4000x3000 from mobile phones) have pixel gradients
+        spread across many pixels, naturally yielding low raw Laplacian variance despite being
+        sharp. We standardize the evaluation resolution (max dimension 1000px) so the sharpness
+        metric is scale-invariant and accurately detects true blur.
         """
         thresh = threshold if threshold is not None else settings.quality_blur_threshold
 
         gray = cv2.cvtColor(img_bgr, cv2.COLOR_BGR2GRAY)
-        blur_score = float(cv2.Laplacian(gray, cv2.CV_64F).var())
+        h, w = gray.shape
+
+        # Standardize evaluation scale to 1000px max dimension using bilinear interpolation (preserves sharp edges)
+        max_dim = 1000
+        if max(h, w) > max_dim:
+            scale = max_dim / max(h, w)
+            gray_eval = cv2.resize(gray, (int(w * scale), int(h * scale)), interpolation=cv2.INTER_LINEAR)
+        else:
+            gray_eval = gray
+
+        blur_score = float(cv2.Laplacian(gray_eval, cv2.CV_64F).var())
 
         if blur_score < thresh:
             logger.warning(
                 "image_blurry_rejected",
                 blur_score=round(blur_score, 2),
-                threshold=thresh
+                threshold=thresh,
+                field=field,
+                filename=filename
             )
             raise ImageBlurError(
                 blur_score=blur_score,
-                threshold=thresh
+                threshold=thresh,
+                field=field,
+                filename=filename
             )
 
         return round(blur_score, 2)
@@ -108,21 +115,11 @@ class ImageQualityValidator:
     def validate_lighting(
         img_bgr: np.ndarray,
         min_brightness: Optional[float] = None,
-        max_brightness: Optional[float] = None
+        max_brightness: Optional[float] = None,
+        field: Optional[str] = None,
+        filename: Optional[str] = None
     ) -> float:
-        """Validate illumination / lighting of image
-        
-        Args:
-            img_bgr: Image as numpy array in BGR format
-            min_brightness: Minimum average luminance (defaults to settings.quality_lighting_min)
-            max_brightness: Maximum average luminance (defaults to settings.quality_lighting_max)
-            
-        Returns:
-            mean brightness value (0-255)
-            
-        Raises:
-            ImageLightingError: If image is underexposed or overexposed
-        """
+        """Validate illumination / lighting of image"""
         min_b = min_brightness if min_brightness is not None else settings.quality_lighting_min
         max_b = max_brightness if max_brightness is not None else settings.quality_lighting_max
 
@@ -133,26 +130,34 @@ class ImageQualityValidator:
             logger.warning(
                 "image_underexposed_rejected",
                 brightness=round(brightness, 2),
-                min_brightness=min_b
+                min_brightness=min_b,
+                field=field,
+                filename=filename
             )
             raise ImageLightingError(
                 brightness=brightness,
                 min_brightness=min_b,
                 max_brightness=max_b,
-                issue="underexposed_too_dark"
+                issue="underexposed_too_dark",
+                field=field,
+                filename=filename
             )
 
         if brightness > max_b:
             logger.warning(
                 "image_overexposed_rejected",
                 brightness=round(brightness, 2),
-                max_brightness=max_b
+                max_brightness=max_b,
+                field=field,
+                filename=filename
             )
             raise ImageLightingError(
                 brightness=brightness,
                 min_brightness=min_b,
                 max_brightness=max_b,
-                issue="overexposed_too_bright"
+                issue="overexposed_too_bright",
+                field=field,
+                filename=filename
             )
 
         return round(brightness, 2)
@@ -162,20 +167,11 @@ class ImageQualityValidator:
         img_shape: Tuple[int, int, ...],
         bbox: list,
         min_face_size: Optional[int] = None,
-        boundary_margin: Optional[int] = None
+        boundary_margin: Optional[int] = None,
+        field: Optional[str] = None,
+        filename: Optional[str] = None
     ) -> Dict[str, Any]:
-        """Ensure face is fully visible within image boundaries and sufficiently sized
-        
-        Args:
-            img_shape: Image shape (height, width, channels)
-            bbox: Face bounding box [x1, y1, x2, y2]
-            min_face_size: Minimum face box width and height
-            boundary_margin: Minimum pixels from boundary to avoid cut-off face
-            
-        Raises:
-            FaceTooSmallError: If face box dimensions are below minimum
-            FaceNotFullyVisibleError: If face touches or crosses image boundary
-        """
+        """Ensure face is fully visible within image boundaries and sufficiently sized"""
         min_size = min_face_size if min_face_size is not None else settings.quality_min_face_size
         margin = boundary_margin if boundary_margin is not None else settings.quality_boundary_margin
 
@@ -191,12 +187,16 @@ class ImageQualityValidator:
                 "face_too_small_rejected",
                 face_width=face_w,
                 face_height=face_h,
-                min_size=min_size
+                min_size=min_size,
+                field=field,
+                filename=filename
             )
             raise FaceTooSmallError(
                 face_width=face_w,
                 face_height=face_h,
-                min_size=min_size
+                min_size=min_size,
+                field=field,
+                filename=filename
             )
 
         # Check boundary cut-off
@@ -215,9 +215,15 @@ class ImageQualityValidator:
                 "face_boundary_cut_off",
                 boundary_issues=boundary_issues,
                 bbox=bbox,
-                img_shape=(img_w, img_h)
+                img_shape=(img_w, img_h),
+                field=field,
+                filename=filename
             )
-            raise FaceNotFullyVisibleError(boundary_issues=boundary_issues)
+            raise FaceNotFullyVisibleError(
+                boundary_issues=boundary_issues,
+                field=field,
+                filename=filename
+            )
 
         return {
             "face_width": face_w,
@@ -225,30 +231,44 @@ class ImageQualityValidator:
         }
 
     @staticmethod
-    def validate_landmarks_and_occlusion(face: Any) -> Dict[str, Any]:
-        """Validate that essential facial landmarks are detectable and not occluded
-        
-        Args:
-            face: InsightFace Face object
-            
-        Raises:
-            FaceOccludedError: If facial landmarks are missing or corrupted
-        """
+    def validate_landmarks_and_occlusion(
+        face: Any,
+        field: Optional[str] = None,
+        filename: Optional[str] = None
+    ) -> Dict[str, Any]:
+        """Validate that essential facial landmarks are detectable and not occluded"""
         kps = getattr(face, 'kps', None)
         if kps is None or len(kps) < 5:
-            logger.warning("face_landmarks_missing_or_occluded")
-            raise FaceOccludedError(missing_landmarks=["facial_landmarks_missing"])
+            logger.warning("face_landmarks_missing_or_occluded", field=field, filename=filename)
+            raise FaceOccludedError(
+                missing_landmarks=["facial_landmarks_missing"],
+                field=field,
+                filename=filename
+            )
 
         # Check for NaN or Inf coordinates in landmarks
         if np.isnan(kps).any() or np.isinf(kps).any():
-            logger.warning("face_landmarks_invalid_coordinates")
-            raise FaceOccludedError(missing_landmarks=["invalid_landmark_coordinates"])
+            logger.warning("face_landmarks_invalid_coordinates", field=field, filename=filename)
+            raise FaceOccludedError(
+                missing_landmarks=["invalid_landmark_coordinates"],
+                field=field,
+                filename=filename
+            )
 
         # Check detection confidence score against quality bar
         det_score = float(getattr(face, 'det_score', 0.0))
         if det_score < settings.face_detection_threshold:
-            logger.warning("face_detection_confidence_too_low", det_score=det_score)
-            raise FaceOccludedError(missing_landmarks=["low_confidence_due_to_obstruction"])
+            logger.warning(
+                "face_detection_confidence_too_low",
+                det_score=det_score,
+                field=field,
+                filename=filename
+            )
+            raise FaceOccludedError(
+                missing_landmarks=["low_confidence_due_to_obstruction"],
+                field=field,
+                filename=filename
+            )
 
         return {
             "landmarks_detected": len(kps),

@@ -2,7 +2,7 @@
 
 import io
 import os
-from typing import Tuple
+from typing import Tuple, Optional, List, Dict, Any
 
 import cv2
 import numpy as np
@@ -129,14 +129,15 @@ class InsightFaceClient:
         except Exception as e:
             logger.warning("insightface_warmup_failed", error=str(e))
 
-    def validate_image_format(self, file_data: bytes, filename: str) -> None:
+    def validate_image_format(self, file_data: bytes, filename: str, field: Optional[str] = None) -> None:
         """Validate image format and size"""
+        prefix = f"{field} ({filename}): " if field and filename else (f"{field}: " if field else "")
         # Check if file is empty
         file_size = len(file_data)
         if file_size == 0:
             raise InvalidImageError(
-                message="Image file is empty",
-                details={"filename": filename}
+                message=f"{prefix}Image file is empty",
+                details={"filename": filename, **({"field": field} if field else {})}
             )
 
         # Check file size
@@ -151,7 +152,7 @@ class InsightFaceClient:
         if file_ext not in settings.image_extensions_set:
             raise UnsupportedImageFormatError(
                 format_detected=file_ext,
-                message=f"File extension {file_ext} not supported"
+                message=f"{prefix}File extension {file_ext} not supported"
             )
 
         # Try to open and verify image
@@ -162,14 +163,16 @@ class InsightFaceClient:
             if image_format not in settings.image_formats_set:
                 raise UnsupportedImageFormatError(
                     format_detected=image_format,
-                    message=f"Image format {image_format} not supported"
+                    message=f"{prefix}Image format {image_format} not supported"
                 )
 
             # Check minimum image resolution
             if settings.quality_validation_enabled:
                 ImageQualityValidator.validate_resolution(
                     width=image.size[0],
-                    height=image.size[1]
+                    height=image.size[1],
+                    field=field,
+                    filename=filename
                 )
 
             # Verify image is not corrupted
@@ -215,11 +218,18 @@ class InsightFaceClient:
                 message=f"Failed to preprocess image: {str(e)}"
             )
 
-    def _validate_and_select_face(self, faces: list) -> Tuple[list, int]:
+    def _validate_and_select_face(
+        self,
+        faces: list,
+        field: Optional[str] = None,
+        filename: Optional[str] = None
+    ) -> Tuple[list, int]:
         """Validate face count and select face (largest if multiple)
         
         Args:
             faces: List of detected Face objects from InsightFace
+            field: Optional field name (e.g. 'image1' or 'image2')
+            filename: Optional filename
             
         Returns:
             Tuple of (validated_faces, face_count)
@@ -229,13 +239,16 @@ class InsightFaceClient:
             MultipleFacesError: If multiple faces and not allowed
         """
         face_count = len(faces)
-        logger.info("faces_detected", count=face_count, provider="insightface")
+        logger.info("faces_detected", count=face_count, provider="insightface", field=field, filename=filename)
+
+        prefix = f"{field} ({filename}): " if field and filename else (f"{field}: " if field else "")
+        err_details = {"provider": "insightface", **({"field": field} if field else {}), **({"filename": filename} if filename else {})}
 
         # Validate face count
         if face_count == 0:
             raise FaceDetectionError(
-                message="No face detected in image",
-                details={"provider": "insightface"}
+                message=f"{prefix}No face detected in image",
+                details=err_details
             )
 
         if face_count > 1:
@@ -243,8 +256,8 @@ class InsightFaceClient:
                 # Strict mode: reject multiple faces
                 raise MultipleFacesError(
                     face_count=face_count,
-                    message=f"Multiple faces detected ({face_count}). Please provide image with single face.",
-                    details={"provider": "insightface"}
+                    message=f"{prefix}Multiple faces detected ({face_count}). Please provide image with single face.",
+                    details=err_details
                 )
             else:
                 # Allow mode: select largest face
@@ -375,14 +388,19 @@ class InsightFaceClient:
             logger.error("face_verification_failed", error=str(e))
             return False, 0.0
 
-    def process_image(self, file_data: bytes, filename: str) -> Tuple[np.ndarray, dict]:
+    def process_image(
+        self,
+        file_data: bytes,
+        filename: str,
+        field: Optional[str] = None
+    ) -> Tuple[np.ndarray, dict]:
         """Complete pipeline: validate, preprocess, detect, extract
         
         For InsightFace, detection and embedding extraction happen together,
         making this more efficient.
         """
         # Step 1: Validate
-        self.validate_image_format(file_data, filename)
+        self.validate_image_format(file_data, filename, field=field)
 
         # Step 2: Preprocess
         img_array = self.preprocess_image(file_data)
@@ -390,8 +408,16 @@ class InsightFaceClient:
         # Quality check: Blur & Lighting
         quality_metrics = {}
         if settings.quality_validation_enabled:
-            blur_score = ImageQualityValidator.validate_blur(img_array)
-            lighting_score = ImageQualityValidator.validate_lighting(img_array)
+            blur_score = ImageQualityValidator.validate_blur(
+                img_array,
+                field=field,
+                filename=filename
+            )
+            lighting_score = ImageQualityValidator.validate_lighting(
+                img_array,
+                field=field,
+                filename=filename
+            )
             quality_metrics["blur_score"] = blur_score
             quality_metrics["brightness"] = lighting_score
 
@@ -400,7 +426,11 @@ class InsightFaceClient:
             faces = self.app.get(img_array)
 
             # Validate and select face
-            faces, face_count = self._validate_and_select_face(faces)
+            faces, face_count = self._validate_and_select_face(
+                faces,
+                field=field,
+                filename=filename
+            )
 
             # Get first (and only, or largest) face
             face = faces[0]
@@ -409,9 +439,15 @@ class InsightFaceClient:
             if settings.quality_validation_enabled:
                 integrity_metrics = ImageQualityValidator.validate_face_integrity(
                     img_shape=img_array.shape,
-                    bbox=face.bbox.tolist()
+                    bbox=face.bbox.tolist(),
+                    field=field,
+                    filename=filename
                 )
-                occlusion_metrics = ImageQualityValidator.validate_landmarks_and_occlusion(face)
+                occlusion_metrics = ImageQualityValidator.validate_landmarks_and_occlusion(
+                    face,
+                    field=field,
+                    filename=filename
+                )
                 quality_metrics.update(integrity_metrics)
                 quality_metrics.update(occlusion_metrics)
 

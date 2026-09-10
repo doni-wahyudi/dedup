@@ -237,17 +237,17 @@ class DedupService:
         try:
             # Process first image (validate format, detect face, extract embedding)
             embedding1, metadata1 = self.insightface_client.process_image(
-                image1_data, image1_filename
+                image1_data, image1_filename, field="image1"
             )
             if embedding1 is None:
-                raise DedupServiceError("No face detected in first image")
+                raise DedupServiceError("image1: No face detected in first image")
 
             # Process second image (same pipeline)
             embedding2, metadata2 = self.insightface_client.process_image(
-                image2_data, image2_filename
+                image2_data, image2_filename, field="image2"
             )
             if embedding2 is None:
-                raise DedupServiceError("No face detected in second image")
+                raise DedupServiceError("image2: No face detected in second image")
 
             # Compare embeddings using cosine similarity
             is_match, similarity = self.insightface_client.verify_face_match(

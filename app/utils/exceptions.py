@@ -102,6 +102,8 @@ class ImageResolutionError(DedupServiceError):
         height: int,
         min_width: int,
         min_height: int,
+        field: Optional[str] = None,
+        filename: Optional[str] = None,
         message: Optional[str] = None,
         details: Optional[dict] = None
     ):
@@ -112,7 +114,13 @@ class ImageResolutionError(DedupServiceError):
             "min_width": min_width,
             "min_height": min_height
         })
-        msg = message or f"Image resolution ({width}x{height}) is below minimum required ({min_width}x{min_height})"
+        if field:
+            details["field"] = field
+        if filename:
+            details["filename"] = filename
+
+        prefix = f"{field} ({filename}): " if field and filename else (f"{field}: " if field else "")
+        msg = message or f"{prefix}Image resolution ({width}x{height}) is below minimum required ({min_width}x{min_height})"
         super().__init__(message=msg, code="IMAGE_RESOLUTION_TOO_LOW", details=details)
 
 
@@ -123,6 +131,8 @@ class ImageBlurError(DedupServiceError):
         self,
         blur_score: float,
         threshold: float,
+        field: Optional[str] = None,
+        filename: Optional[str] = None,
         message: Optional[str] = None,
         details: Optional[dict] = None
     ):
@@ -131,7 +141,13 @@ class ImageBlurError(DedupServiceError):
             "blur_score": round(blur_score, 2),
             "threshold": threshold
         })
-        msg = message or f"Image is too blurry (sharpness score {blur_score:.2f} is below minimum threshold {threshold})"
+        if field:
+            details["field"] = field
+        if filename:
+            details["filename"] = filename
+
+        prefix = f"{field} ({filename}): " if field and filename else (f"{field}: " if field else "")
+        msg = message or f"{prefix}Image is too blurry (sharpness score {blur_score:.2f} is below minimum threshold {threshold})"
         super().__init__(message=msg, code="IMAGE_BLURRY", details=details)
 
 
@@ -144,6 +160,8 @@ class ImageLightingError(DedupServiceError):
         min_brightness: float,
         max_brightness: float,
         issue: str = "improper_lighting",
+        field: Optional[str] = None,
+        filename: Optional[str] = None,
         message: Optional[str] = None,
         details: Optional[dict] = None
     ):
@@ -154,7 +172,13 @@ class ImageLightingError(DedupServiceError):
             "max_brightness": max_brightness,
             "issue": issue
         })
-        msg = message or f"Image lighting is invalid ({issue}: brightness {brightness:.2f} not in [{min_brightness}, {max_brightness}])"
+        if field:
+            details["field"] = field
+        if filename:
+            details["filename"] = filename
+
+        prefix = f"{field} ({filename}): " if field and filename else (f"{field}: " if field else "")
+        msg = message or f"{prefix}Image lighting is invalid ({issue}: brightness {brightness:.2f} not in [{min_brightness}, {max_brightness}])"
         super().__init__(message=msg, code="IMAGE_LIGHTING_INVALID", details=details)
 
 
@@ -166,6 +190,8 @@ class FaceTooSmallError(DedupServiceError):
         face_width: int,
         face_height: int,
         min_size: int,
+        field: Optional[str] = None,
+        filename: Optional[str] = None,
         message: Optional[str] = None,
         details: Optional[dict] = None
     ):
@@ -175,7 +201,13 @@ class FaceTooSmallError(DedupServiceError):
             "face_height": face_height,
             "min_face_size": min_size
         })
-        msg = message or f"Detected face ({face_width}x{face_height}) is too small (minimum required {min_size}x{min_size})"
+        if field:
+            details["field"] = field
+        if filename:
+            details["filename"] = filename
+
+        prefix = f"{field} ({filename}): " if field and filename else (f"{field}: " if field else "")
+        msg = message or f"{prefix}Detected face ({face_width}x{face_height}) is too small (minimum required {min_size}x{min_size})"
         super().__init__(message=msg, code="FACE_TOO_SMALL", details=details)
 
 
@@ -185,12 +217,20 @@ class FaceNotFullyVisibleError(DedupServiceError):
     def __init__(
         self,
         boundary_issues: list,
+        field: Optional[str] = None,
+        filename: Optional[str] = None,
         message: Optional[str] = None,
         details: Optional[dict] = None
     ):
         details = details or {}
         details["boundary_issues"] = boundary_issues
-        msg = message or f"Face is not fully visible, cut off at image boundary: {', '.join(boundary_issues)}"
+        if field:
+            details["field"] = field
+        if filename:
+            details["filename"] = filename
+
+        prefix = f"{field} ({filename}): " if field and filename else (f"{field}: " if field else "")
+        msg = message or f"{prefix}Face is not fully visible, cut off at image boundary: {', '.join(boundary_issues)}"
         super().__init__(message=msg, code="FACE_NOT_FULLY_VISIBLE", details=details)
 
 
@@ -200,10 +240,18 @@ class FaceOccludedError(DedupServiceError):
     def __init__(
         self,
         missing_landmarks: list,
+        field: Optional[str] = None,
+        filename: Optional[str] = None,
         message: Optional[str] = None,
         details: Optional[dict] = None
     ):
         details = details or {}
         details["missing_landmarks"] = missing_landmarks
-        msg = message or f"Face is partially occluded, missing key features: {', '.join(missing_landmarks)}"
+        if field:
+            details["field"] = field
+        if filename:
+            details["filename"] = filename
+
+        prefix = f"{field} ({filename}): " if field and filename else (f"{field}: " if field else "")
+        msg = message or f"{prefix}Face is partially occluded, missing key features: {', '.join(missing_landmarks)}"
         super().__init__(message=msg, code="FACE_OCCLUDED", details=details)
